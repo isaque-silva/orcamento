@@ -245,7 +245,18 @@ const Clientes = () => {
           <Button
             colorScheme="brand"
             leftIcon={<Icon as={FiPlus} />}
-            onClick={onOpen}
+            onClick={() => {
+              setClienteParaEditar(null)
+              reset({
+                nome: "",
+                tipo_documento: "",
+                documento: "",
+                email: "",
+                telefone: "",
+                endereco: ""
+              })
+              onOpen()
+            }}
             w={{ base: "100%", sm: "auto" }}
           >
             Novo Cliente

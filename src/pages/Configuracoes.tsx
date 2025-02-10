@@ -25,6 +25,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import ConnectionStatus from '../components/ConnectionStatus';
 import { FiLogOut } from 'react-icons/fi';
+import { SupabaseClient } from '@supabase/supabase-js';
+import { createSupabaseClient, initializeSupabase } from '../lib/supabase';
 
 interface ConfiguracaoSupabase {
   url: string;
@@ -54,15 +56,30 @@ const Configuracoes = () => {
 
       if (url && anon_key) {
         setConfig({ url, anon_key });
+        
+        // Testar a conexão ao carregar
+        const client = createSupabaseClient(url, anon_key);
+        const { data, error } = await client.auth.getSession();
+        
+        if (!error) {
+          setConnectionStatus('connected');
+          // Inicializar o cliente global do Supabase
+          initializeSupabase(url, anon_key);
+        } else {
+          setConnectionStatus('disconnected');
+          // Limpar credenciais inválidas
+          localStorage.removeItem('supabaseUrl');
+          localStorage.removeItem('supabaseAnonKey');
+          setConfig({ url: '', anon_key: '' });
+        }
       }
     } catch (error) {
       console.error('Erro ao carregar configurações:', error);
-      toast({
-        title: 'Erro ao carregar configurações',
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
+      setConnectionStatus('disconnected');
+      // Limpar credenciais em caso de erro
+      localStorage.removeItem('supabaseUrl');
+      localStorage.removeItem('supabaseAnonKey');
+      setConfig({ url: '', anon_key: '' });
     } finally {
       setIsLoading(false);
     }
@@ -76,29 +93,44 @@ const Configuracoes = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      // Salvar no localStorage
+      // Testar a conexão antes de salvar
+      const client = createSupabaseClient(config.url, config.anon_key);
+      const { data, error } = await client.auth.getSession();
+
+      if (error) throw error;
+
+      // Se a conexão for bem sucedida, salvar no localStorage
       localStorage.setItem('supabaseUrl', config.url);
       localStorage.setItem('supabaseAnonKey', config.anon_key);
 
-      // Forçar verificação de conexão
+      // Inicializar o cliente global do Supabase
+      initializeSupabase(config.url, config.anon_key);
+
+      setConnectionStatus('connected');
       setForceCheck(prev => !prev);
 
       toast({
         title: 'Configurações salvas',
-        description: 'Verificando conexão...',
-        status: 'info',
+        description: 'Conectado ao Supabase com sucesso',
+        status: 'success',
         duration: 2000,
         isClosable: true,
       });
     } catch (error) {
       console.error('Erro ao salvar configurações:', error);
+      setConnectionStatus('disconnected');
       toast({
         title: 'Erro ao salvar configurações',
-        description: 'Verifique as credenciais e tente novamente',
+        description: 'Verifique se a URL e a chave anônima estão corretas',
         status: 'error',
         duration: 5000,
         isClosable: true,
       });
+      
+      // Limpar credenciais em caso de erro
+      localStorage.removeItem('supabaseUrl');
+      localStorage.removeItem('supabaseAnonKey');
+      setConfig({ url: '', anon_key: '' });
     }
   };
 
@@ -108,6 +140,7 @@ const Configuracoes = () => {
       localStorage.removeItem('supabaseUrl');
       localStorage.removeItem('supabaseAnonKey');
       setConfig({ url: '', anon_key: '' });
+      setConnectionStatus('disconnected');
       
       toast({
         title: 'Desconectado com sucesso',
@@ -258,13 +291,34 @@ const Configuracoes = () => {
 
         <Card variant="outline">
           <CardHeader>
-            <Heading size="md" color="gray.700">Estrutura do Banco de Dados</Heading>
-            <Text color="gray.500" fontSize="sm" mt={1}>
-              Comandos SQL para criar as tabelas no Supabase
-            </Text>
+            <Box>
+              <Heading size="md" color="gray.700">Estrutura do Banco de Dados</Heading>
+              <Text color="gray.500" fontSize="sm" mt={1}>
+                Comandos SQL para criar as tabelas no Supabase
+              </Text>
+            </Box>
           </CardHeader>
           <CardBody>
             <Accordion allowMultiple>
+              <AccordionItem>
+                <h2>
+                  <AccordionButton>
+                    <Box flex="1" textAlign="left" fontWeight="medium">
+                      Extensão moddatetime
+                    </Box>
+                    <AccordionIcon />
+                  </AccordionButton>
+                </h2>
+                <AccordionPanel pb={4} bg="gray.50" borderRadius="md">
+                  <Text mb={4} color="gray.600">
+                    Antes de criar as tabelas, é necessário habilitar a extensão moddatetime para gerenciar automaticamente o campo updated_at:
+                  </Text>
+                  <Code display="block" whiteSpace="pre" p={4} overflowX="auto">
+{`CREATE EXTENSION IF NOT EXISTS moddatetime SCHEMA public;`}
+                  </Code>
+                </AccordionPanel>
+              </AccordionItem>
+
               <AccordionItem>
                 <h2>
                   <AccordionButton>
@@ -420,25 +474,6 @@ CREATE TRIGGER atualizar_valor_total_delete
   AFTER DELETE ON itens_orcamento
   FOR EACH ROW
   EXECUTE FUNCTION calcular_valor_total();`}
-                  </Code>
-                </AccordionPanel>
-              </AccordionItem>
-
-              <AccordionItem>
-                <h2>
-                  <AccordionButton>
-                    <Box flex="1" textAlign="left" fontWeight="medium">
-                      Extensão moddatetime
-                    </Box>
-                    <AccordionIcon />
-                  </AccordionButton>
-                </h2>
-                <AccordionPanel pb={4} bg="gray.50" borderRadius="md">
-                  <Text mb={4} color="gray.600">
-                    Antes de criar as tabelas, é necessário habilitar a extensão moddatetime para gerenciar automaticamente o campo updated_at:
-                  </Text>
-                  <Code display="block" whiteSpace="pre" p={4} overflowX="auto">
-{`CREATE EXTENSION IF NOT EXISTS moddatetime SCHEMA public;`}
                   </Code>
                 </AccordionPanel>
               </AccordionItem>

@@ -1,30 +1,36 @@
 import { createClient } from '@supabase/supabase-js';
 
+export const createSupabaseClient = (url: string, key: string) => {
+  return createClient(url, key, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true
+    },
+    db: {
+      schema: 'public'
+    }
+  });
+};
+
 let supabaseInstance: ReturnType<typeof createClient> | null = null;
 
 export const supabase = () => {
-  if (supabaseInstance) return supabaseInstance;
+  const url = localStorage.getItem('supabaseUrl');
+  const key = localStorage.getItem('supabaseAnonKey');
 
-  const supabaseUrl = localStorage.getItem('supabaseUrl');
-  const supabaseKey = localStorage.getItem('supabaseAnonKey');
-
-  console.log('Tentando criar cliente Supabase com:', {
-    supabaseUrl,
-    supabaseKeyExists: !!supabaseKey
-  });
-
-  if (!supabaseUrl || !supabaseKey) {
-    console.error('Configurações do Supabase não encontradas no localStorage');
-    window.location.href = '/configuracoes';
-    throw new Error('Configurações do Supabase não encontradas. Redirecionando para a página de configurações...');
+  if (!url || !key) {
+    throw new Error('Credenciais do Supabase não encontradas');
   }
 
-  try {
-    supabaseInstance = createClient(supabaseUrl, supabaseKey);
-    console.log('Cliente Supabase criado com sucesso');
-    return supabaseInstance;
-  } catch (error) {
-    console.error('Erro ao criar cliente Supabase:', error);
-    throw error;
+  if (!supabaseInstance) {
+    supabaseInstance = createSupabaseClient(url, key);
   }
+
+  return supabaseInstance;
+};
+
+export const initializeSupabase = (url: string, key: string) => {
+  supabaseInstance = createSupabaseClient(url, key);
+  return supabaseInstance;
 }; 

@@ -5,6 +5,28 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Vite + React + TS</title>
+    <style>
+      @media print {
+        body * {
+          visibility: hidden;
+        }
+        .chakra-modal__content * {
+          visibility: visible;
+        }
+        .chakra-modal__header,
+        .chakra-modal__close-btn {
+          display: none !important;
+        }
+        .chakra-modal__content {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 100%;
+          height: 100%;
+          background: white !important;
+        }
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>

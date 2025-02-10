@@ -33,447 +33,461 @@ import {
   CardBody,
   Icon,
   HStack,
-} from '@chakra-ui/react';
-import { useForm, useFieldArray } from 'react-hook-form';
-import { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
-import { Cliente, Orcamento, ItemOrcamento, InformacoesEmpresa } from '../types';
-import { FiTrash2, FiPrinter, FiPlus, FiX, FiEdit2, FiCheck, FiX as FiXCircle } from 'react-icons/fi';
-import OrcamentoPDF from '../components/OrcamentoPDF';
-import { format } from 'date-fns';
+  Tooltip,
+} from "@chakra-ui/react"
+import { useForm, useFieldArray } from "react-hook-form"
+import { useEffect, useState } from "react"
+import { supabase } from "../lib/supabase"
+import type { Cliente, Orcamento, InformacoesEmpresa } from "../types"
+import { FiTrash2, FiPrinter, FiPlus, FiEdit2, FiCheck, FiX as FiXCircle } from "react-icons/fi"
+import OrcamentoPreview from "../components/OrcamentoPreview"
+import { format } from "date-fns"
+import { PDFViewer, Document, Page } from "@react-pdf/renderer"
+import OrcamentoPDFRenderer from "../components/OrcamentoPDFRenderer"
+import { pdf } from "@react-pdf/renderer"
 
 interface OrcamentoForm {
-  cliente_id: string;
-  data: string;
-  status?: 'pendente' | 'aprovado' | 'rejeitado';
-  observacoes?: string;
+  cliente_id: string
+  data: string
+  status?: "pendente" | "aprovado" | "rejeitado"
+  observacoes?: string
   itens: {
-    descricao: string;
-    quantidade: number;
-    valor_unitario: number;
-  }[];
+    descricao: string
+    quantidade: number
+    valor_unitario: number
+  }[]
 }
 
 const formatarMoeda = (valor: number | string): string => {
-  if (typeof valor === 'string') {
+  if (typeof valor === "string") {
     // Remove tudo exceto números
-    valor = valor.replace(/\D/g, '');
-    
+    valor = valor.replace(/\D/g, "")
+
     // Converte para centavos (divide por 100)
-    const centavos = valor.length > 0 ? (Number(valor) / 100).toFixed(2) : '0.00';
-    
+    const centavos = valor.length > 0 ? (Number(valor) / 100).toFixed(2) : "0.00"
+
     // Formata no padrão brasileiro
-    return Number(centavos).toLocaleString('pt-BR', {
+    return Number(centavos).toLocaleString("pt-BR", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    });
+    })
   }
 
-  return valor.toLocaleString('pt-BR', {
+  return valor.toLocaleString("pt-BR", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  });
-};
+  })
+}
 
 const parseMoeda = (valor: string): number => {
   // Remove tudo exceto números
-  const apenasNumeros = valor.replace(/\D/g, '');
+  const apenasNumeros = valor.replace(/\D/g, "")
   // Converte para centavos
-  return Number(apenasNumeros) / 100;
-};
+  return Number(apenasNumeros) / 100
+}
 
 const Orcamentos = () => {
-  const { isOpen, onOpen, onClose } = useDisclosure();
-  const { register, handleSubmit, reset, control, watch, isSubmitting, setValue } = useForm<OrcamentoForm>();
+  const { isOpen, onOpen, onClose } = useDisclosure()
+  const { register, handleSubmit, reset, control, watch, isSubmitting, setValue } = useForm<OrcamentoForm>()
   const { fields, append, remove } = useFieldArray({
     control,
-    name: 'itens',
-  });
-  const toast = useToast();
-  const [orcamentos, setOrcamentos] = useState<Orcamento[]>([]);
-  const [clientes, setClientes] = useState<Cliente[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [orcamentoParaImprimir, setOrcamentoParaImprimir] = useState<Orcamento | null>(null);
-  const [informacoesEmpresa, setInformacoesEmpresa] = useState<InformacoesEmpresa | null>(null);
-  const impressaoDisclosure = useDisclosure();
-  const [orcamentoParaEditar, setOrcamentoParaEditar] = useState<Orcamento | null>(null);
+    name: "itens",
+  })
+  const toast = useToast()
+  const [orcamentos, setOrcamentos] = useState<Orcamento[]>([])
+  const [clientes, setClientes] = useState<Cliente[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [orcamentoParaImprimir, setOrcamentoParaImprimir] = useState<Orcamento | null>(null)
+  const [informacoesEmpresa, setInformacoesEmpresa] = useState<InformacoesEmpresa | null>(null)
+  const impressaoDisclosure = useDisclosure()
+  const [orcamentoParaEditar, setOrcamentoParaEditar] = useState<Orcamento | null>(null)
 
   useEffect(() => {
-    carregarDados();
-    carregarInformacoesEmpresa();
-  }, []);
+    carregarDados()
+    carregarInformacoesEmpresa()
+  }, [])
 
   const carregarDados = async () => {
     try {
-      const client = supabase();
-      
+      const client = supabase()
+
       // Carregar orçamentos com itens
       const { data: orcamentos, error: orcamentosError } = await client
-        .from('orcamentos')
+        .from("orcamentos")
         .select(`
           *,
           itens:itens_orcamento(*)
         `)
-        .order('created_at', { ascending: false });
+        .order("created_at", { ascending: false })
 
       if (orcamentosError) {
-        console.error('Erro ao carregar orçamentos:', orcamentosError);
-        throw orcamentosError;
+        console.error("Erro ao carregar orçamentos:", orcamentosError)
+        throw orcamentosError
       }
 
       // Carregar clientes
-      const { data: clientes, error: clientesError } = await client
-        .from('clientes')
-        .select('*')
-        .order('nome');
+      const { data: clientes, error: clientesError } = await client.from("clientes").select("*").order("nome")
 
       if (clientesError) {
-        console.error('Erro ao carregar clientes:', clientesError);
-        throw clientesError;
+        console.error("Erro ao carregar clientes:", clientesError)
+        throw clientesError
       }
 
       // Atualizar o estado com tipagem segura
-      const orcamentosProcessados = orcamentos?.map(orcamento => ({
-        ...orcamento,
-        itens: Array.isArray(orcamento.itens) ? orcamento.itens : []
-      })) || [];
+      const orcamentosProcessados =
+        orcamentos?.map((orcamento) => ({
+          ...orcamento,
+          itens: Array.isArray(orcamento.itens) ? orcamento.itens : [],
+        })) || []
 
-      console.log('Orçamentos processados:', orcamentosProcessados);
-      
-      setOrcamentos(orcamentosProcessados as Orcamento[]);
-      setClientes(clientes as Cliente[]);
+      console.log("Orçamentos processados:", orcamentosProcessados)
+
+      setOrcamentos(orcamentosProcessados as Orcamento[])
+      setClientes(clientes as Cliente[])
     } catch (error) {
-      console.error('Erro completo:', error);
+      console.error("Erro completo:", error)
       toast({
-        title: 'Erro ao carregar dados',
-        description: error instanceof Error ? error.message : 'Erro ao conectar com o banco de dados',
-        status: 'error',
+        title: "Erro ao carregar dados",
+        description: error instanceof Error ? error.message : "Erro ao conectar com o banco de dados",
+        status: "error",
         duration: 5000,
         isClosable: true,
-      });
+      })
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   const carregarInformacoesEmpresa = async () => {
     try {
-      const client = supabase();
+      const client = supabase()
       const { data, error } = await client
-        .from('informacoes_empresa')
-        .select('id, nome_empresa, documento, tipo_documento, endereco, telefone, email, logo_url, assinatura_url, observacoes_padrao, created_at')
-        .single();
+        .from("informacoes_empresa")
+        .select(
+          "id, nome_empresa, documento, tipo_documento, endereco, telefone, email, logo_url, assinatura_url, observacoes_padrao, created_at",
+        )
+        .single()
 
-      if (error && error.code !== 'PGRST116') throw error;
-      setInformacoesEmpresa(data as InformacoesEmpresa);
+      if (error && error.code !== "PGRST116") throw error
+      setInformacoesEmpresa(data as InformacoesEmpresa)
     } catch (error) {
-      console.error('Erro ao carregar informações da empresa:', error);
+      console.error("Erro ao carregar informações da empresa:", error)
       toast({
-        title: 'Erro ao carregar informações da empresa',
-        description: 'Configure as informações da empresa antes de imprimir orçamentos',
-        status: 'error',
+        title: "Erro ao carregar informações da empresa",
+        description: "Configure as informações da empresa antes de imprimir orçamentos",
+        status: "error",
         duration: 5000,
         isClosable: true,
-      });
+      })
     }
-  };
+  }
 
   const handleEditarOrcamento = async (orcamento: Orcamento) => {
     try {
-      const client = supabase();
+      const client = supabase()
       const { data: orcamentoCompleto, error } = await client
-        .from('orcamentos')
+        .from("orcamentos")
         .select(`
           *,
           itens:itens_orcamento(*)
         `)
-        .eq('id', orcamento.id)
-        .single();
+        .eq("id", orcamento.id)
+        .single()
 
-      if (error) throw error;
+      if (error) throw error
 
       if (!orcamentoCompleto) {
-        throw new Error('Orçamento não encontrado');
+        throw new Error("Orçamento não encontrado")
       }
 
       // Formatar os valores dos itens antes de setar no formulário
-      const itensFormatados = orcamentoCompleto.itens?.map(item => ({
+      const itensFormatados = orcamentoCompleto.itens?.map((item) => ({
         ...item,
-        valor_unitario: formatarMoeda(item.valor_unitario)
-      }));
+        valor_unitario: formatarMoeda(item.valor_unitario),
+      }))
 
-      setOrcamentoParaEditar(orcamentoCompleto as Orcamento);
+      setOrcamentoParaEditar(orcamentoCompleto as Orcamento)
       reset({
         cliente_id: orcamentoCompleto.cliente_id,
         data: orcamentoCompleto.data,
         status: orcamentoCompleto.status,
         observacoes: orcamentoCompleto.observacoes,
-        itens: itensFormatados || []
-      });
-      onOpen();
+        itens: itensFormatados || [],
+      })
+      onOpen()
     } catch (error) {
-      console.error('Erro ao carregar orçamento para edição:', error);
+      console.error("Erro ao carregar orçamento para edição:", error)
       toast({
-        title: 'Erro ao carregar orçamento',
-        description: 'Não foi possível carregar os dados do orçamento',
-        status: 'error',
+        title: "Erro ao carregar orçamento",
+        description: "Não foi possível carregar os dados do orçamento",
+        status: "error",
         duration: 5000,
         isClosable: true,
-      });
+      })
     }
-  };
+  }
 
   const onSubmit = async (data: OrcamentoForm) => {
     try {
-      const client = supabase();
-      
+      const client = supabase()
+
       // Processar os itens para garantir que os valores estejam corretos
-      const itensProcessados = data.itens.map(item => ({
+      const itensProcessados = data.itens.map((item) => ({
         ...item,
         quantidade: Number(item.quantidade),
-        valor_unitario: parseMoeda(item.valor_unitario.toString())
-      }));
-      
+        valor_unitario: parseMoeda(item.valor_unitario.toString()),
+      }))
+
       const orcamentoData = {
         cliente_id: data.cliente_id,
         data: data.data,
-        status: data.status || 'pendente',
+        status: data.status || "pendente",
         observacoes: data.observacoes,
-        valor_total: itensProcessados.reduce((total, item) => 
-          total + (item.quantidade * item.valor_unitario), 0
-        ),
-      };
+        valor_total: itensProcessados.reduce((total, item) => total + item.quantidade * item.valor_unitario, 0),
+      }
 
-      let error, orcamentoCriado;
+      let error, orcamentoCriado
 
       if (orcamentoParaEditar) {
         // Atualizar orçamento existente
-        ({ error, data: orcamentoCriado } = await client
-          .from('orcamentos')
+        ;({ error, data: orcamentoCriado } = await client
+          .from("orcamentos")
           .update(orcamentoData)
-          .eq('id', orcamentoParaEditar.id)
+          .eq("id", orcamentoParaEditar.id)
           .select()
-          .single());
+          .single())
       } else {
         // Criar novo orçamento
-        ({ error, data: orcamentoCriado } = await client
-          .from('orcamentos')
-          .insert([orcamentoData])
-          .select()
-          .single());
+        ;({ error, data: orcamentoCriado } = await client.from("orcamentos").insert([orcamentoData]).select().single())
       }
 
-      if (error) throw error;
+      if (error) throw error
 
       // Atualizar ou criar itens
       if (orcamentoParaEditar) {
         // Excluir itens antigos
-        await client
-          .from('itens_orcamento')
-          .delete()
-          .eq('orcamento_id', orcamentoParaEditar.id);
+        await client.from("itens_orcamento").delete().eq("orcamento_id", orcamentoParaEditar.id)
       }
 
       // Inserir novos itens
-      const itensData = itensProcessados.map(item => ({
+      const itensData = itensProcessados.map((item) => ({
         orcamento_id: orcamentoCriado.id,
         descricao: item.descricao,
         quantidade: item.quantidade,
         valor_unitario: item.valor_unitario,
-      }));
+      }))
 
-      const { error: itensError } = await client
-        .from('itens_orcamento')
-        .insert(itensData);
+      const { error: itensError } = await client.from("itens_orcamento").insert(itensData)
 
-      if (itensError) throw itensError;
+      if (itensError) throw itensError
 
       toast({
-        title: orcamentoParaEditar 
-          ? 'Orçamento atualizado com sucesso'
-          : 'Orçamento criado com sucesso',
-        status: 'success',
+        title: orcamentoParaEditar ? "Orçamento atualizado com sucesso" : "Orçamento criado com sucesso",
+        status: "success",
         duration: 3000,
         isClosable: true,
-      });
+      })
 
-      onClose();
-      reset();
-      setOrcamentoParaEditar(null);
-      carregarDados();
+      onClose()
+      reset()
+      setOrcamentoParaEditar(null)
+      carregarDados()
     } catch (error) {
-      console.error('Erro completo:', error);
+      console.error("Erro completo:", error)
       toast({
-        title: orcamentoParaEditar 
-          ? 'Erro ao atualizar orçamento'
-          : 'Erro ao criar orçamento',
-        description: error instanceof Error 
-          ? error.message 
-          : 'Verifique se todos os campos estão preenchidos corretamente',
-        status: 'error',
+        title: orcamentoParaEditar ? "Erro ao atualizar orçamento" : "Erro ao criar orçamento",
+        description:
+          error instanceof Error ? error.message : "Verifique se todos os campos estão preenchidos corretamente",
+        status: "error",
         duration: 5000,
         isClosable: true,
-      });
+      })
     }
-  };
+  }
 
   const excluirOrcamento = async (id: number) => {
-    if (!window.confirm('Tem certeza que deseja excluir este orçamento?')) return;
+    if (!window.confirm("Tem certeza que deseja excluir este orçamento?")) return
 
     try {
-      const client = supabase();
+      const client = supabase()
 
       // Primeiro exclui os itens do orçamento
-      const { error: erroItens } = await client
-        .from('itens_orcamento')
-        .delete()
-        .eq('orcamento_id', id);
+      const { error: erroItens } = await client.from("itens_orcamento").delete().eq("orcamento_id", id)
 
-      if (erroItens) throw erroItens;
+      if (erroItens) throw erroItens
 
       // Depois exclui o orçamento
-      const { error } = await client
-        .from('orcamentos')
-        .delete()
-        .eq('id', id);
+      const { error } = await client.from("orcamentos").delete().eq("id", id)
 
-      if (error) throw error;
+      if (error) throw error
 
       toast({
-        title: 'Orçamento excluído com sucesso',
-        status: 'success',
+        title: "Orçamento excluído com sucesso",
+        status: "success",
         duration: 3000,
         isClosable: true,
-      });
+      })
 
-      carregarDados();
+      carregarDados()
     } catch (error) {
-      console.error('Erro ao excluir:', error);
+      console.error("Erro ao excluir:", error)
       toast({
-        title: 'Erro ao excluir orçamento',
-        description: error instanceof Error 
-          ? error.message 
-          : 'Não foi possível excluir o orçamento',
-        status: 'error',
+        title: "Erro ao excluir orçamento",
+        description: error instanceof Error ? error.message : "Não foi possível excluir o orçamento",
+        status: "error",
         duration: 5000,
         isClosable: true,
-      });
+      })
     }
-  };
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'aprovado':
-        return 'green';
-      case 'rejeitado':
-        return 'red';
+      case "aprovado":
+        return "green"
+      case "rejeitado":
+        return "red"
       default:
-        return 'yellow';
+        return "yellow"
     }
+  }
+
+  const isMobileDevice = () => {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   };
 
   const handleImprimir = async (orcamento: Orcamento) => {
     if (!informacoesEmpresa) {
       toast({
-        title: 'Configuração necessária',
-        description: 'Configure as informações da empresa antes de imprimir orçamentos',
-        status: 'warning',
+        title: "Configuração necessária",
+        description: "Configure as informações da empresa antes de imprimir orçamentos",
+        status: "warning",
         duration: 5000,
         isClosable: true,
-      });
-      return;
+      })
+      return
     }
 
     try {
-      // Carregar o orçamento com seus itens
-      const client = supabase();
+      const client = supabase()
       const { data: orcamentoCompleto, error } = await client
-        .from('orcamentos')
+        .from("orcamentos")
         .select(`
           *,
           itens:itens_orcamento(*)
         `)
-        .eq('id', orcamento.id)
-        .single();
+        .eq("id", orcamento.id)
+        .single()
 
-      if (error) throw error;
+      if (error) throw error
 
       if (!orcamentoCompleto) {
-        throw new Error('Orçamento não encontrado');
+        throw new Error("Orçamento não encontrado")
       }
 
-      // Processar o orçamento para garantir que itens seja um array
       const orcamentoProcessado = {
         ...orcamentoCompleto,
-        itens: Array.isArray(orcamentoCompleto.itens) ? orcamentoCompleto.itens : []
-      };
+        itens: Array.isArray(orcamentoCompleto.itens) ? orcamentoCompleto.itens : [],
+      }
 
-      console.log('Orçamento para impressão:', orcamentoProcessado);
-      
-      setOrcamentoParaImprimir(orcamentoProcessado as Orcamento);
-      impressaoDisclosure.onOpen();
+      if (isMobileDevice()) {
+        const blob = await pdf(
+          <Document>
+            <Page size="A4">
+              <OrcamentoPDFRenderer
+                orcamento={orcamentoProcessado as Orcamento}
+                cliente={clientes.find(c => c.id === orcamentoProcessado.cliente_id)!}
+                informacoesEmpresa={informacoesEmpresa}
+              />
+            </Page>
+          </Document>
+        ).toBlob()
+
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement("a")
+        link.href = url
+        link.download = `orcamento-${orcamento.id.toString().padStart(4, "0")}.pdf`
+        link.click()
+        URL.revokeObjectURL(url)
+
+        toast({
+          title: "PDF gerado com sucesso",
+          description: "O download do PDF foi iniciado",
+          status: "success",
+          duration: 3000,
+          isClosable: true,
+        })
+      } else {
+        setOrcamentoParaImprimir(orcamentoProcessado as Orcamento)
+        impressaoDisclosure.onOpen()
+      }
     } catch (error) {
-      console.error('Erro ao carregar orçamento para impressão:', error);
+      console.error("Erro ao processar orçamento:", error)
       toast({
-        title: 'Erro ao preparar impressão',
-        description: 'Não foi possível carregar os dados do orçamento',
-        status: 'error',
+        title: "Erro ao processar orçamento",
+        description: "Não foi possível gerar o PDF",
+        status: "error",
         duration: 5000,
         isClosable: true,
-      });
+      })
     }
-  };
+  }
 
-  const atualizarStatus = async (orcamento: Orcamento, novoStatus: 'aprovado' | 'rejeitado' | 'pendente') => {
+  const atualizarStatus = async (orcamento: Orcamento, novoStatus: "aprovado" | "rejeitado" | "pendente") => {
     try {
-      const client = supabase();
-      const { error } = await client
-        .from('orcamentos')
-        .update({ status: novoStatus })
-        .eq('id', orcamento.id);
+      const client = supabase()
+      const { error } = await client.from("orcamentos").update({ status: novoStatus }).eq("id", orcamento.id)
 
-      if (error) throw error;
+      if (error) throw error
 
       toast({
         title: `Orçamento ${novoStatus}`,
-        status: novoStatus === 'aprovado' ? 'success' : novoStatus === 'rejeitado' ? 'error' : 'info',
+        status: novoStatus === "aprovado" ? "success" : novoStatus === "rejeitado" ? "error" : "info",
         duration: 3000,
         isClosable: true,
-      });
+      })
 
-      carregarDados();
+      carregarDados()
     } catch (error) {
-      console.error('Erro ao atualizar status:', error);
+      console.error("Erro ao atualizar status:", error)
       toast({
-        title: 'Erro ao atualizar status',
-        description: error instanceof Error ? error.message : 'Erro desconhecido',
-        status: 'error',
+        title: "Erro ao atualizar status",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
+        status: "error",
         duration: 5000,
         isClosable: true,
-      });
+      })
     }
-  };
+  }
 
   return (
     <Box minH="100vh" h="100%" p={0} bg="gray.50" w="100%">
       <Flex direction="column" h="calc(100vh - 64px)" w="100%">
         <Box px={8} py={4}>
-          <Flex 
-            justify="space-between" 
-            align="center" 
+          <Flex
+            justify="space-between"
+            align="center"
             mb={8}
             direction={{ base: "column", sm: "row" }}
             gap={4}
             w="100%"
           >
-            <Heading size="lg" color="gray.700">Orçamentos</Heading>
+            <Heading size="lg" color="gray.700">
+              Orçamentos
+            </Heading>
             <Button
               colorScheme="brand"
               leftIcon={<Icon as={FiPlus} />}
               onClick={() => {
-                setOrcamentoParaEditar(null);
-                reset({} as OrcamentoForm);
-                onOpen();
+                setOrcamentoParaEditar(null)
+                reset({
+                  cliente_id: "",
+                  data: "",
+                  status: "pendente",
+                  observacoes: "",
+                  itens: []
+                })
+                onOpen()
               }}
               w={{ base: "100%", sm: "auto" }}
             >
@@ -488,11 +502,15 @@ const Orcamentos = () => {
               <Table variant="simple" w="100%">
                 <Thead bg="gray.50" display={{ base: "none", md: "table-header-group" }}>
                   <Tr>
-                    <Th width="25%" pl={8}>CLIENTE</Th>
+                    <Th width="25%" pl={8}>
+                      CLIENTE
+                    </Th>
                     <Th width="15%">DATA</Th>
                     <Th width="20%">VALOR TOTAL</Th>
                     <Th width="15%">STATUS</Th>
-                    <Th width="25%" pr={8}>AÇÕES</Th>
+                    <Th width="25%" pr={8}>
+                      AÇÕES
+                    </Th>
                   </Tr>
                 </Thead>
                 <Tbody>
@@ -506,9 +524,9 @@ const Orcamentos = () => {
                     </Tr>
                   ) : (
                     orcamentos.map((orcamento) => {
-                      const cliente = clientes.find(c => c.id === orcamento.cliente_id);
+                      const cliente = clientes.find((c) => c.id === orcamento.cliente_id)
                       return (
-                        <Tr 
+                        <Tr
                           key={orcamento.id}
                           display={{ base: "flex", md: "table-row" }}
                           flexDirection={{ base: "column", md: "inherit" }}
@@ -518,7 +536,7 @@ const Orcamentos = () => {
                           boxShadow={{ base: "sm", md: "none" }}
                           borderRadius={{ base: "md", md: "none" }}
                         >
-                          <Td 
+                          <Td
                             display={{ base: "flex", md: "table-cell" }}
                             flexDirection="column"
                             border="none"
@@ -526,79 +544,52 @@ const Orcamentos = () => {
                             width={{ md: "25%" }}
                             pl={8}
                           >
-                            <Text 
-                              display={{ base: "block", md: "none" }} 
-                              fontSize="xs" 
-                              color="gray.500"
-                              mb={1}
-                            >
+                            <Text display={{ base: "block", md: "none" }} fontSize="xs" color="gray.500" mb={1}>
                               CLIENTE
                             </Text>
                             <Text color="gray.700" fontWeight="medium">
                               {cliente?.nome}
                             </Text>
                           </Td>
-                          <Td 
+                          <Td
                             display={{ base: "flex", md: "table-cell" }}
                             flexDirection="column"
                             border="none"
                             pb={{ base: 2, md: 4 }}
                             width={{ md: "15%" }}
                           >
-                            <Text 
-                              display={{ base: "block", md: "none" }} 
-                              fontSize="xs" 
-                              color="gray.500"
-                              mb={1}
-                            >
+                            <Text display={{ base: "block", md: "none" }} fontSize="xs" color="gray.500" mb={1}>
                               DATA
                             </Text>
-                            <Text color="gray.600">
-                              {format(new Date(orcamento.data), 'dd/MM/yyyy')}
-                            </Text>
+                            <Text color="gray.600">{format(new Date(orcamento.data), "dd/MM/yyyy")}</Text>
                           </Td>
-                          <Td 
+                          <Td
                             display={{ base: "flex", md: "table-cell" }}
                             flexDirection="column"
                             border="none"
                             pb={{ base: 2, md: 4 }}
                             width={{ md: "20%" }}
                           >
-                            <Text 
-                              display={{ base: "block", md: "none" }} 
-                              fontSize="xs" 
-                              color="gray.500"
-                              mb={1}
-                            >
+                            <Text display={{ base: "block", md: "none" }} fontSize="xs" color="gray.500" mb={1}>
                               VALOR TOTAL
                             </Text>
-                            <Text color="gray.600">
-                              {formatarMoeda(orcamento.valor_total)}
-                            </Text>
+                            <Text color="gray.600">{formatarMoeda(orcamento.valor_total)}</Text>
                           </Td>
-                          <Td 
+                          <Td
                             display={{ base: "flex", md: "table-cell" }}
                             flexDirection="column"
                             border="none"
                             pb={{ base: 2, md: 4 }}
                             width={{ md: "15%" }}
                           >
-                            <Text 
-                              display={{ base: "block", md: "none" }} 
-                              fontSize="xs" 
-                              color="gray.500"
-                              mb={1}
-                            >
+                            <Text display={{ base: "block", md: "none" }} fontSize="xs" color="gray.500" mb={1}>
                               STATUS
                             </Text>
-                            <Badge
-                              colorScheme={getStatusColor(orcamento.status)}
-                              textTransform="uppercase"
-                            >
+                            <Badge colorScheme={getStatusColor(orcamento.status)} textTransform="uppercase">
                               {orcamento.status}
                             </Badge>
                           </Td>
-                          <Td 
+                          <Td
                             display={{ base: "flex", md: "table-cell" }}
                             flexDirection="column"
                             border="none"
@@ -606,16 +597,11 @@ const Orcamentos = () => {
                             width={{ md: "25%" }}
                             pr={8}
                           >
-                            <Text 
-                              display={{ base: "block", md: "none" }} 
-                              fontSize="xs" 
-                              color="gray.500"
-                              mb={1}
-                            >
+                            <Text display={{ base: "block", md: "none" }} fontSize="xs" color="gray.500" mb={1}>
                               AÇÕES
                             </Text>
                             <HStack spacing={2} justify={{ base: "flex-start", md: "flex-end" }}>
-                              {orcamento.status === 'pendente' && (
+                              {orcamento.status === "pendente" && (
                                 <>
                                   <IconButton
                                     aria-label="Aprovar orçamento"
@@ -623,7 +609,7 @@ const Orcamentos = () => {
                                     colorScheme="green"
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => atualizarStatus(orcamento, 'aprovado')}
+                                    onClick={() => atualizarStatus(orcamento, "aprovado")}
                                   />
                                   <IconButton
                                     aria-label="Rejeitar orçamento"
@@ -631,7 +617,7 @@ const Orcamentos = () => {
                                     colorScheme="red"
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => atualizarStatus(orcamento, 'rejeitado')}
+                                    onClick={() => atualizarStatus(orcamento, "rejeitado")}
                                   />
                                 </>
                               )}
@@ -662,7 +648,7 @@ const Orcamentos = () => {
                             </HStack>
                           </Td>
                         </Tr>
-                      );
+                      )
                     })
                   )}
                 </Tbody>
@@ -673,17 +659,10 @@ const Orcamentos = () => {
       </Flex>
 
       {/* Modal de Criação/Edição */}
-      <Modal 
-        isOpen={isOpen} 
-        onClose={onClose} 
-        size={{ base: "full", md: "2xl" }}
-        scrollBehavior="inside"
-      >
+      <Modal isOpen={isOpen} onClose={onClose} size={{ base: "full", md: "2xl" }} scrollBehavior="inside">
         <ModalOverlay />
         <ModalContent>
-          <ModalHeader>
-            {orcamentoParaEditar ? 'Editar Orçamento' : 'Novo Orçamento'}
-          </ModalHeader>
+          <ModalHeader>{orcamentoParaEditar ? "Editar Orçamento" : "Novo Orçamento"}</ModalHeader>
           <ModalCloseButton />
           <ModalBody pb={6}>
             <form onSubmit={handleSubmit(onSubmit)}>
@@ -694,10 +673,11 @@ const Orcamentos = () => {
                       <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} w="100%">
                         <FormControl isRequired>
                           <FormLabel fontWeight="medium">Cliente</FormLabel>
-                          <Select {...register('cliente_id')} placeholder="Selecione um cliente">
+                          <Select {...register("cliente_id")} placeholder="Selecione um cliente">
                             {clientes.map((cliente) => (
                               <option key={cliente.id} value={cliente.id}>
-                                {cliente.nome} - {cliente.tipo_documento === 'cpf' ? 'CPF' : 'CNPJ'}: {cliente.documento}
+                                {cliente.nome} - {cliente.tipo_documento === "cpf" ? "CPF" : "CNPJ"}:{" "}
+                                {cliente.documento}
                               </option>
                             ))}
                           </Select>
@@ -705,13 +685,13 @@ const Orcamentos = () => {
 
                         <FormControl isRequired>
                           <FormLabel fontWeight="medium">Data</FormLabel>
-                          <Input type="date" {...register('data')} />
+                          <Input type="date" {...register("data")} />
                         </FormControl>
                       </SimpleGrid>
 
                       <FormControl>
                         <FormLabel fontWeight="medium">Status</FormLabel>
-                        <Select {...register('status')} defaultValue="pendente">
+                        <Select {...register("status")} defaultValue="pendente">
                           <option value="pendente">Pendente</option>
                           <option value="aprovado">Aprovado</option>
                           <option value="rejeitado">Rejeitado</option>
@@ -724,18 +704,15 @@ const Orcamentos = () => {
                 <Card variant="outline">
                   <CardBody>
                     <VStack spacing={4} align="stretch">
-                      <Flex 
-                        justify="space-between" 
-                        align="center"
-                        direction={{ base: "column", sm: "row" }}
-                        gap={4}
-                      >
-                        <Text fontSize="lg" fontWeight="medium">Itens do Orçamento</Text>
+                      <Flex justify="space-between" align="center" direction={{ base: "column", sm: "row" }} gap={4}>
+                        <Text fontSize="lg" fontWeight="medium">
+                          Itens do Orçamento
+                        </Text>
                         <Button
                           size="sm"
                           colorScheme="brand"
                           leftIcon={<Icon as={FiPlus} />}
-                          onClick={() => append({ descricao: '', quantidade: 1, valor_unitario: 0 })}
+                          onClick={() => append({ descricao: "", quantidade: 1, valor_unitario: 0 })}
                           w={{ base: "100%", sm: "auto" }}
                         >
                           Adicionar Item
@@ -754,8 +731,8 @@ const Orcamentos = () => {
                                 <VStack spacing={4} align="stretch">
                                   <FormControl isRequired>
                                     <FormLabel fontWeight="medium">Descrição</FormLabel>
-                                    <Input 
-                                      {...register(`itens.${index}.descricao`)} 
+                                    <Input
+                                      {...register(`itens.${index}.descricao`)}
                                       bg="white"
                                       placeholder="Ex: Serviço de manutenção"
                                     />
@@ -779,8 +756,8 @@ const Orcamentos = () => {
                                         bg="white"
                                         placeholder="0,00"
                                         onChange={(e) => {
-                                          const formattedValue = formatarMoeda(e.target.value);
-                                          setValue(`itens.${index}.valor_unitario`, formattedValue);
+                                          const formattedValue = formatarMoeda(e.target.value)
+                                          setValue(`itens.${index}.valor_unitario`, formattedValue)
                                         }}
                                       />
                                     </FormControl>
@@ -809,8 +786,8 @@ const Orcamentos = () => {
                   <CardBody>
                     <FormControl>
                       <FormLabel fontWeight="medium">Observações</FormLabel>
-                      <Textarea 
-                        {...register('observacoes')} 
+                      <Textarea
+                        {...register("observacoes")}
                         placeholder="Digite aqui observações adicionais sobre o orçamento..."
                         rows={4}
                       />
@@ -825,7 +802,7 @@ const Orcamentos = () => {
                   isLoading={isSubmitting}
                   leftIcon={<Icon as={orcamentoParaEditar ? FiEdit2 : FiPlus} />}
                 >
-                  {orcamentoParaEditar ? 'Salvar Alterações' : 'Criar Orçamento'}
+                  {orcamentoParaEditar ? "Salvar Alterações" : "Criar Orçamento"}
                 </Button>
               </VStack>
             </form>
@@ -834,50 +811,70 @@ const Orcamentos = () => {
       </Modal>
 
       {/* Modal de Impressão */}
-      <Modal
-        isOpen={impressaoDisclosure.isOpen}
+      <Modal 
+        isOpen={impressaoDisclosure.isOpen} 
         onClose={impressaoDisclosure.onClose}
-        size={{ base: "full", lg: "6xl" }}
-        scrollBehavior="inside"
+        size="full"
         motionPreset="none"
       >
         <ModalOverlay />
         <ModalContent 
-          h={{ base: "100vh", lg: "auto" }}
-          m={0}
-          rounded="none"
+          height="100vh" 
+          margin={0} 
+          maxWidth="100%" 
+          backgroundColor="white"
         >
           <ModalHeader 
             borderBottom="1px" 
             borderColor="gray.200"
-            position="sticky"
-            top={0}
-            bg="white"
-            zIndex={1}
-          >
-            Visualizar Orçamento
-          </ModalHeader>
-          <ModalCloseButton />
-          <ModalBody 
-            p={0}
             display="flex"
-            flexDirection="column"
-            flex={1}
+            justifyContent="space-between"
+            alignItems="center"
+            backgroundColor="white"
+            px={4}
           >
+            <Text>Visualizar Orçamento</Text>
+            <IconButton
+              aria-label="Fechar"
+              icon={<FiXCircle size={24} />}
+              size="md"
+              variant="ghost"
+              onClick={impressaoDisclosure.onClose}
+            />
+          </ModalHeader>
+          <ModalBody p={4} bg="white">
             {orcamentoParaImprimir && informacoesEmpresa && (
-              <Box flex={1} h="100%">
-                <OrcamentoPDF
-                  orcamento={orcamentoParaImprimir}
-                  cliente={clientes.find(c => c.id === orcamentoParaImprimir.cliente_id)!}
-                  informacoesEmpresa={informacoesEmpresa}
-                />
+              <Box 
+                height="calc(100vh - 100px)" 
+                bg="white"
+              >
+                <PDFViewer
+                  showToolbar={true}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    border: 'none',
+                    backgroundColor: 'white'
+                  }}
+                >
+                  <Document>
+                    <Page size="A4">
+                      <OrcamentoPDFRenderer
+                        orcamento={orcamentoParaImprimir}
+                        cliente={clientes.find(c => c.id === orcamentoParaImprimir.cliente_id)!}
+                        informacoesEmpresa={informacoesEmpresa}
+                      />
+                    </Page>
+                  </Document>
+                </PDFViewer>
               </Box>
             )}
           </ModalBody>
         </ModalContent>
       </Modal>
     </Box>
-  );
-};
+  )
+}
 
-export default Orcamentos; 
+export default Orcamentos
+

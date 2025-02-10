@@ -1,0 +1,115 @@
+{
+  "hash": "afcca54b",
+  "configHash": "939a0dec",
+  "lockfileHash": "e882c296",
+  "browserHash": "8afd4bf3",
+  "optimized": {
+    "react/jsx-dev-runtime": {
+      "src": "../../node_modules/react/jsx-dev-runtime.js",
+      "file": "react_jsx-dev-runtime.js",
+      "fileHash": "9cf4fab4",
+      "needsInterop": true
+    },
+    "react": {
+      "src": "../../node_modules/react/index.js",
+      "file": "react.js",
+      "fileHash": "88a49b2b",
+      "needsInterop": true
+    },
+    "react-dom/client": {
+      "src": "../../node_modules/react-dom/client.js",
+      "file": "react-dom_client.js",
+      "fileHash": "59586f24",
+      "needsInterop": true
+    },
+    "@chakra-ui/react": {
+      "src": "../../node_modules/@chakra-ui/react/dist/index.mjs",
+      "file": "@chakra-ui_react.js",
+      "fileHash": "273ceccf",
+      "needsInterop": false
+    },
+    "react-router-dom": {
+      "src": "../../node_modules/react-router-dom/dist/index.mjs",
+      "file": "react-router-dom.js",
+      "fileHash": "40b2950f",
+      "needsInterop": false
+    },
+    "react-hook-form": {
+      "src": "../../node_modules/react-hook-form/dist/index.esm.mjs",
+      "file": "react-hook-form.js",
+      "fileHash": "d3106777",
+      "needsInterop": false
+    },
+    "react-icons/fi": {
+      "src": "../../node_modules/react-icons/fi/index.mjs",
+      "file": "react-icons_fi.js",
+      "fileHash": "173b87bf",
+      "needsInterop": false
+    },
+    "yup": {
+      "src": "../../node_modules/yup/index.esm.js",
+      "file": "yup.js",
+      "fileHash": "8d33b34d",
+      "needsInterop": false
+    },
+    "@hookform/resolvers/yup": {
+      "src": "../../node_modules/@hookform/resolvers/yup/dist/yup.mjs",
+      "file": "@hookform_resolvers_yup.js",
+      "fileHash": "8f3bc892",
+      "needsInterop": false
+    },
+    "date-fns": {
+      "src": "../../node_modules/date-fns/index.js",
+      "file": "date-fns.js",
+      "fileHash": "64f018b5",
+      "needsInterop": false
+    },
+    "@supabase/supabase-js": {
+      "src": "../../node_modules/@supabase/supabase-js/dist/module/index.js",
+      "file": "@supabase_supabase-js.js",
+      "fileHash": "d6233a98",
+      "needsInterop": false
+    },
+    "@react-pdf/renderer": {
+      "src": "../../node_modules/@react-pdf/renderer/lib/react-pdf.browser.js",
+      "file": "@react-pdf_renderer.js",
+      "fileHash": "21421d6c",
+      "needsInterop": false
+    },
+    "date-fns/locale": {
+      "src": "../../node_modules/date-fns/locale.js",
+      "file": "date-fns_locale.js",
+      "fileHash": "a009b279",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "chunk-RLYKSGMS": {
+      "file": "chunk-RLYKSGMS.js"
+    },
+    "browser-JVJNU44C": {
+      "file": "browser-JVJNU44C.js"
+    },
+    "chunk-IELMDZPG": {
+      "file": "chunk-IELMDZPG.js"
+    },
+    "browser-ZF2I65V2": {
+      "file": "browser-ZF2I65V2.js"
+    },
+    "chunk-LUJQACJ3": {
+      "file": "chunk-LUJQACJ3.js"
+    },
+    "chunk-SK4KGF4M": {
+      "file": "chunk-SK4KGF4M.js"
+    },
+    "chunk-UROD2AIY": {
+      "file": "chunk-UROD2AIY.js"
+    },
+    "chunk-N4N5IM6X": {
+      "file": "chunk-N4N5IM6X.js"
+    },
+    "chunk-LK32TJAX": {
+      "file": "chunk-LK32TJAX.js"
+    }
+  }
+}
